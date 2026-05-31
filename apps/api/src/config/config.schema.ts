@@ -20,7 +20,7 @@ export const configSchema = z.object({
     .regex(/^[0-9a-fA-F]{64}$/, 'MASTER_ENCRYPTION_KEY must be 64 hex chars (32 bytes)'),
 
   DEFAULT_CELL_RADIUS_M: z.coerce.number().int().positive().default(1500),
-  GOOGLE_PLACES_COST_PER_CALL_USD: z.coerce.number().positive().default(0.032),
+  GOOGLE_PLACES_COST_PER_CALL_USD: z.coerce.number().positive().default(0.035),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

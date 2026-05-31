@@ -95,6 +95,15 @@ rotating in place.
   `actual_cost_usd + per_call > max_cost_usd` before calling Google;
   exceeding pauses the job, `POST /api/jobs/:id/resume` lifts it (and
   optionally raises the budget).
+- **Pricing tier**: our `searchNearby` field mask includes
+  `internationalPhoneNumber` and `nationalPhoneNumber`, so every call
+  bills under "Places API Nearby Search Enterprise" SKU — $35 / 1,000
+  = **$0.035 / call** (first 1,000 calls/month free; volume tiers drop
+  to $0.028 above 100k, $0.021 above 500k, $0.0105 above 1M). Drop
+  the phone fields from `apps/worker/src/scraper/places-client.ts`
+  if you want the Pro tier ($0.032 / call) instead. Override via
+  `GOOGLE_PLACES_COST_PER_CALL_USD` in `.env` when crossing tier
+  boundaries (estimator currently assumes the marginal $0.035).
 - **Live updates**: worker publishes JobEvents on a Redis pub/sub
   channel; API multiplexes one ioredis subscriber across all SSE
   clients with refcounted subscribe/unsubscribe; EventSource auth via

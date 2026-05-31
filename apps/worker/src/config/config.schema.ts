@@ -20,7 +20,7 @@ export const configSchema = z.object({
   CACHE_TTL_DAYS: z.coerce.number().int().nonnegative().default(7),
 
   GOOGLE_PLACES_BASE_URL: z.string().url().default('https://places.googleapis.com'),
-  GOOGLE_PLACES_COST_PER_CALL_USD: z.coerce.number().positive().default(0.032),
+  GOOGLE_PLACES_COST_PER_CALL_USD: z.coerce.number().positive().default(0.035),
 });
 
 export type WorkerConfig = z.infer<typeof configSchema>;
