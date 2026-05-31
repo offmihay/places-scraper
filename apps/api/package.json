@@ -10,7 +10,9 @@
     "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "seed:admin": "tsx src/scripts/seed-admin.ts"
+    "seed:admin": "tsx src/scripts/seed-admin.ts",
+    "migrate": "tsx ../../packages/db/src/migrate.ts",
+    "seed:countries": "tsx ../../packages/db/src/seed/countries.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^10.2.1",
