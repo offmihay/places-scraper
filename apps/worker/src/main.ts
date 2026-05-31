@@ -1,7 +1,13 @@
 import 'reflect-metadata';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
-import { WorkerModule } from './worker.module.js';
+
+config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '.env') });
+
+const { WorkerModule } = await import('./worker.module.js');
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(WorkerModule, { bufferLogs: true });
