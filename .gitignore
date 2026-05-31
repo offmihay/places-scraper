@@ -47,6 +47,7 @@ data/raw/
 *.geojson
 *.geojson.gz
 
-# Test coverage
-coverage/
-.nyc_output/
+# Test coverage (Vitest / Istanbul output)
+/coverage/
+**/.nyc_output/
+**/coverage-final.json
