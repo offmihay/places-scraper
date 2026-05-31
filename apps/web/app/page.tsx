@@ -1,8 +1,4 @@
+// Redirect handled by middleware.ts. Stub kept so Next.js sees a root route.
 export default function Home() {
-  return (
-    <main style={{ padding: 24 }}>
-      <h1>Places Scraper</h1>
-      <p>Skeleton is up. Admin UI will live here.</p>
-    </main>
-  );
+  return null;
 }
