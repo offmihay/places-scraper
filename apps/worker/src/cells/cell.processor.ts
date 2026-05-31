@@ -8,6 +8,7 @@ import { DRIZZLE } from '../db/db.tokens.js';
 import { AppConfigService } from '../config/config.service.js';
 import { KeysClaimService } from '../keys/keys-claim.service.js';
 import { PlacesClient } from '../scraper/places-client.js';
+import { EventsPublisher } from '../events/events.service.js';
 import { upsertPlaces } from './places-upsert.js';
 import {
   JOB_SCRAPE_CELL,
@@ -32,6 +33,7 @@ export class CellProcessor extends WorkerHost {
     @Inject(AppConfigService) private readonly config: AppConfigService,
     @Inject(KeysClaimService) private readonly keys: KeysClaimService,
     @Inject(PlacesClient) private readonly client: PlacesClient,
+    @Inject(EventsPublisher) private readonly events: EventsPublisher,
     @InjectQueue(QUEUE_CELLS) private readonly cellsQueue: Queue<CellJobData>,
   ) {
     super();
@@ -74,11 +76,24 @@ export class CellProcessor extends WorkerHost {
         .set({ status: 'paused', error: 'max_cost reached' })
         .where(eq(schema.scrapeJobs.id, jobId));
       this.log.warn({ jobId, actual: scrapeJob.actualCostUsd }, 'paused on max_cost');
+      this.events.publish({ kind: 'status', jobId, status: 'paused' });
       return { status: 'paused' };
     }
 
     if (await this.cacheHit(jobId, lat, lng, radiusM)) {
-      await this.bumpProgress(jobId, 0);
+      const after = await this.bumpProgress(jobId, 0);
+      this.events.publish({
+        kind: 'cell',
+        jobId,
+        lat,
+        lng,
+        radiusM,
+        status: 'cache_hit',
+        resultsCount: 0,
+        overflow: false,
+      });
+      this.events.publish({ kind: 'progress', jobId, ...after });
+      await this.maybeFinish(jobId);
       return { status: 'cache-hit' };
     }
 
@@ -96,13 +111,14 @@ export class CellProcessor extends WorkerHost {
     });
 
     if (!apiRes.ok) {
+      const callStatus = apiRes.error.kind === 'rate-limited' ? 'rate_limited' : 'failed';
       await this.logCall({
         jobId,
         keyId: claim.id,
         lat,
         lng,
         radiusM,
-        status: apiRes.error.kind === 'rate-limited' ? 'rate_limited' : 'failed',
+        status: callStatus,
         resultsCount: 0,
         overflow: false,
         latencyMs: apiRes.latencyMs,
@@ -113,6 +129,16 @@ export class CellProcessor extends WorkerHost {
       } else {
         await this.keys.refund(claim.id);
       }
+      this.events.publish({
+        kind: 'cell',
+        jobId,
+        lat,
+        lng,
+        radiusM,
+        status: callStatus,
+        resultsCount: 0,
+        overflow: false,
+      });
       throw new Error(`places api ${apiRes.error.kind}: ${apiRes.error.message.slice(0, 200)}`);
     }
 
@@ -132,7 +158,7 @@ export class CellProcessor extends WorkerHost {
       latencyMs: apiRes.latencyMs,
     });
 
-    await this.bumpProgress(jobId, costPerCall);
+    const after = await this.bumpProgress(jobId, costPerCall);
 
     if (overflow && depth < MAX_QUADTREE_DEPTH) {
       const minRadius = this.config.get('MIN_CELL_RADIUS_M');
@@ -142,7 +168,18 @@ export class CellProcessor extends WorkerHost {
       }
     }
 
-    await this.checkCompletion(jobId);
+    this.events.publish({
+      kind: 'cell',
+      jobId,
+      lat,
+      lng,
+      radiusM,
+      status: 'ok',
+      resultsCount: placesArr.length,
+      overflow,
+    });
+    this.events.publish({ kind: 'progress', jobId, ...after });
+    await this.maybeFinish(jobId);
     return { status: 'ok', results: inserted };
   }
 
@@ -210,24 +247,42 @@ export class CellProcessor extends WorkerHost {
     `);
   }
 
-  private async bumpProgress(jobId: string, costInc: number) {
-    await this.db.execute(sql`
+  private async bumpProgress(
+    jobId: string,
+    costInc: number,
+  ): Promise<{ done: number; total: number; costUsd: number }> {
+    const rows = await this.db.execute<{
+      progress_done: number;
+      progress_total: number;
+      actual_cost_usd: number;
+    }>(sql`
       UPDATE scrape_jobs
       SET progress_done = progress_done + 1,
           actual_cost_usd = actual_cost_usd + ${costInc}
       WHERE id = ${jobId}
+      RETURNING progress_done, progress_total, actual_cost_usd
     `);
+    const r = rows[0]!;
+    return {
+      done: Number(r.progress_done),
+      total: Number(r.progress_total),
+      costUsd: Number(r.actual_cost_usd),
+    };
   }
 
-  private async checkCompletion(jobId: string) {
-    await this.db.execute(sql`
+  private async maybeFinish(jobId: string): Promise<void> {
+    const rows = await this.db.execute<{ id: string }>(sql`
       UPDATE scrape_jobs
       SET status = 'completed',
           completed_at = now()
       WHERE id = ${jobId}
         AND status = 'running'
         AND progress_done >= progress_total
+      RETURNING id
     `);
+    if (rows.length > 0) {
+      this.events.publish({ kind: 'status', jobId, status: 'completed' });
+    }
   }
 
   private async enqueueChildren(parent: CellJobData): Promise<void> {

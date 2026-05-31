@@ -8,7 +8,10 @@ import type { JwtPayload } from './auth.dto.js';
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(@Inject(AppConfigService) config: AppConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+        ExtractJwt.fromUrlQueryParameter('token'),
+      ]),
       ignoreExpiration: false,
       secretOrKey: config.get('JWT_ACCESS_SECRET'),
     });

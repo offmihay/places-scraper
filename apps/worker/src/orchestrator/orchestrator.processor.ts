@@ -6,6 +6,7 @@ import { schema, type Database } from '@places/db';
 import { enumerateGridCenters } from '@places/shared';
 import { DRIZZLE } from '../db/db.tokens.js';
 import { AppConfigService } from '../config/config.service.js';
+import { EventsPublisher } from '../events/events.service.js';
 import {
   JOB_SCRAPE_CELL,
   QUEUE_CELLS,
@@ -21,6 +22,7 @@ export class OrchestratorProcessor extends WorkerHost {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     @Inject(AppConfigService) private readonly config: AppConfigService,
+    @Inject(EventsPublisher) private readonly events: EventsPublisher,
     @InjectQueue(QUEUE_CELLS) private readonly cellsQueue: Queue<CellJobData>,
   ) {
     super();
@@ -79,6 +81,8 @@ export class OrchestratorProcessor extends WorkerHost {
       .update(schema.scrapeJobs)
       .set({ status: 'running', progressTotal: inside.length, startedAt: new Date() })
       .where(eq(schema.scrapeJobs.id, jobId));
+    this.events.publish({ kind: 'status', jobId, status: 'running' });
+    this.events.publish({ kind: 'progress', jobId, done: 0, total: inside.length, costUsd: 0 });
 
     const cellJobs = inside.map((c) => ({
       name: JOB_SCRAPE_CELL,

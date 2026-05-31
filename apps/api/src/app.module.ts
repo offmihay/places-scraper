@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { AppConfigModule } from './config/config.module.js';
 import { DbModule } from './db/db.module.js';
+import { EventsModule } from './events/events.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { KeysModule } from './keys/keys.module.js';
 import { AreasModule } from './areas/areas.module.js';
@@ -30,6 +31,7 @@ import { HealthController } from './health.controller.js';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     ScheduleModule.forRoot(),
     DbModule,
+    EventsModule,
     AuthModule,
     KeysModule,
     AreasModule,
