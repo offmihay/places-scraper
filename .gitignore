@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.sqlite
+*.sqlite3
+postgres-data/
+redis-data/
+
+# Geo data downloads
+data/raw/
+*.geojson.gz
+
+# Test coverage
+coverage/
+.nyc_output/
