@@ -1,8 +1,13 @@
 import { PipeTransform, BadRequestException, ArgumentMetadata } from '@nestjs/common';
-import type { ZodSchema } from 'zod';
+import type { ZodType, ZodTypeDef } from 'zod';
 
+/**
+ * Accept any ZodType regardless of its input shape — schemas with .default()
+ * or transforms have a wider input type than output, and we don't want
+ * each caller to fight the inference.
+ */
 export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
-  constructor(private readonly schema: ZodSchema<T>) {}
+  constructor(private readonly schema: ZodType<T, ZodTypeDef, unknown>) {}
 
   transform(value: unknown, _metadata: ArgumentMetadata): T {
     const result = this.schema.safeParse(value);
