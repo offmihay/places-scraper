@@ -1,22 +1,30 @@
 'use client';
 
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, ClearOutlined } from '@ant-design/icons';
 import {
   App,
   Button,
   Card,
+  Collapse,
   Form,
+  Input,
   InputNumber,
   Modal,
   Select,
   Space,
+  Tag,
   Typography,
 } from 'antd';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '../../../../lib/api';
+import {
+  ALL_PLACE_TYPES,
+  PLACE_TYPE_GROUPS,
+  TYPE_TO_GROUP,
+} from '../../../../lib/place-types';
 
 interface AreaRow {
   id: string;
@@ -36,35 +44,67 @@ interface EstimateResult {
   estimatedDurationMin: number;
 }
 
-const COMMON_TYPES = [
-  'restaurant',
-  'cafe',
-  'bar',
-  'bakery',
-  'hotel',
-  'lodging',
-  'tourist_attraction',
-  'museum',
-  'shopping_mall',
-  'store',
-  'pharmacy',
-  'hospital',
-  'gym',
-  'spa',
-  'gas_station',
-  'parking',
-];
+// Single-Select option list with optgroups (Ant Design's nested options form).
+const TYPE_OPTIONS = PLACE_TYPE_GROUPS.map((g) => ({
+  label: (
+    <span style={{ fontWeight: 600 }}>
+      {g.emoji} {g.label}{' '}
+      <span style={{ color: '#999', fontWeight: 400 }}>({g.types.length})</span>
+    </span>
+  ),
+  // Ant Design Select accepts nested 'options' to render <optgroup>.
+  options: g.types.map((t) => ({ value: t, label: t })),
+}));
 
 export default function NewJobPage() {
   const router = useRouter();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [estimate, setEstimate] = useState<EstimateResult | null>(null);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [filter, setFilter] = useState('');
 
   const areas = useQuery({
     queryKey: ['areas', 'job-picker'],
     queryFn: () => api.get<AreaRow[]>('/api/areas', { query: { limit: 500 } }),
   });
+
+  // Group breakdown of what's currently chosen, so the user sees what they have.
+  const selectedByGroup = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const t of selectedTypes) {
+      const g = TYPE_TO_GROUP[t] ?? 'Other';
+      if (!m.has(g)) m.set(g, []);
+      m.get(g)!.push(t);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [selectedTypes]);
+
+  // Quick-pick: filter group lists by the search box so big sections stay scannable.
+  const filteredGroups = useMemo(() => {
+    if (!filter.trim()) return PLACE_TYPE_GROUPS;
+    const q = filter.toLowerCase();
+    return PLACE_TYPE_GROUPS.map((g) => ({
+      ...g,
+      types: g.types.filter((t) => t.includes(q)),
+    })).filter((g) => g.types.length > 0);
+  }, [filter]);
+
+  function setTypes(next: string[]) {
+    const unique = Array.from(new Set(next));
+    setSelectedTypes(unique);
+    form.setFieldValue('types', unique);
+    setEstimate(null);
+  }
+
+  function addAll(types: string[]) {
+    setTypes([...selectedTypes, ...types]);
+  }
+
+  function removeAll(types: string[]) {
+    const drop = new Set(types);
+    setTypes(selectedTypes.filter((t) => !drop.has(t)));
+  }
 
   const estimateMutation = useMutation({
     mutationFn: (body: { areaId: string; types: string[]; mode: string; radiusM?: number }) =>
@@ -91,7 +131,7 @@ export default function NewJobPage() {
   });
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div style={{ maxWidth: 880 }}>
       <Space style={{ marginBottom: 16 }}>
         <Link href="/jobs">
           <Button icon={<ArrowLeftOutlined />}>Back</Button>
@@ -105,10 +145,13 @@ export default function NewJobPage() {
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ mode: 'default', radiusM: 1500, maxCostUsd: 10 }}
+          initialValues={{ mode: 'default', radiusM: 1500, maxCostUsd: 10, types: [] }}
           onValuesChange={() => setEstimate(null)}
           onFinish={async (values) => {
-            // Two-step: estimate, then show modal, then commit.
+            if (!values.types || values.types.length === 0) {
+              message.error('Pick at least one type');
+              return;
+            }
             const est = await estimateMutation.mutateAsync({
               areaId: values.areaId,
               types: values.types,
@@ -121,7 +164,8 @@ export default function NewJobPage() {
                 <div>
                   <p>
                     Estimated <b>{est.effectiveCalls.toLocaleString()}</b> API calls covering{' '}
-                    <b>{est.baseCells.toLocaleString()}</b> base cells.
+                    <b>{est.baseCells.toLocaleString()}</b> base cells across{' '}
+                    <b>{values.types.length}</b> place types.
                   </p>
                   <p>
                     Estimated cost: <b>${est.estimatedCostUsd.toFixed(2)}</b>, duration ~
@@ -158,13 +202,123 @@ export default function NewJobPage() {
               }))}
             />
           </Form.Item>
-          <Form.Item name="types" label="Place types" rules={[{ required: true }]}>
+
+          <Form.Item
+            name="types"
+            label={`Place types (${selectedTypes.length} of ${ALL_PLACE_TYPES.length} selected)`}
+            rules={[{ required: true, message: 'Pick at least one type' }]}
+          >
             <Select
-              mode="tags"
-              placeholder="Pick types (e.g. restaurant, cafe)"
-              options={COMMON_TYPES.map((t) => ({ value: t, label: t }))}
+              mode="multiple"
+              showSearch
+              allowClear
+              placeholder="Pick types — use the category panel below for bulk selection"
+              options={TYPE_OPTIONS}
+              value={selectedTypes}
+              onChange={(v) => setTypes(v as string[])}
+              maxTagCount="responsive"
+              style={{ width: '100%' }}
             />
           </Form.Item>
+
+          <Card
+            size="small"
+            title={
+              <Space>
+                <span>Browse categories</span>
+                {selectedTypes.length > 0 ? (
+                  <Button
+                    size="small"
+                    icon={<ClearOutlined />}
+                    onClick={() => setTypes([])}
+                  >
+                    Clear all
+                  </Button>
+                ) : null}
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+          >
+            <Input.Search
+              allowClear
+              placeholder="Filter types — e.g. 'restaurant', 'shop', 'medical'"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onSearch={setFilter}
+              style={{ marginBottom: 12 }}
+            />
+            <Collapse
+              size="small"
+              ghost
+              items={filteredGroups.map((g) => {
+                const selectedInGroup = g.types.filter((t) => selectedTypes.includes(t));
+                const allSelected =
+                  selectedInGroup.length === g.types.length && g.types.length > 0;
+                return {
+                  key: g.label,
+                  label: (
+                    <Space>
+                      <span>
+                        {g.emoji} <b>{g.label}</b>
+                      </span>
+                      <Tag>
+                        {selectedInGroup.length} / {g.types.length}
+                      </Tag>
+                    </Space>
+                  ),
+                  extra: (
+                    <Space onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="small"
+                        type={allSelected ? 'default' : 'primary'}
+                        onClick={() => (allSelected ? removeAll(g.types) : addAll(g.types))}
+                      >
+                        {allSelected ? 'Deselect group' : 'Select all'}
+                      </Button>
+                    </Space>
+                  ),
+                  children: (
+                    <Space wrap size={[6, 6]}>
+                      {g.types.map((t) => {
+                        const on = selectedTypes.includes(t);
+                        return (
+                          <Tag.CheckableTag
+                            key={t}
+                            checked={on}
+                            onChange={(checked) =>
+                              checked ? addAll([t]) : removeAll([t])
+                            }
+                          >
+                            {t}
+                          </Tag.CheckableTag>
+                        );
+                      })}
+                    </Space>
+                  ),
+                };
+              })}
+            />
+          </Card>
+
+          {selectedByGroup.length > 0 ? (
+            <Card size="small" type="inner" style={{ marginBottom: 16 }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Selected so far:
+              </Typography.Text>
+              <div style={{ marginTop: 6 }}>
+                {selectedByGroup.map(([group, types]) => (
+                  <div key={group} style={{ marginBottom: 4 }}>
+                    <Typography.Text strong style={{ fontSize: 12 }}>
+                      {group}
+                    </Typography.Text>
+                    <span style={{ color: '#888', fontSize: 12 }}> · </span>
+                    <span style={{ fontSize: 12 }}>{types.join(', ')}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+
           <Form.Item name="mode" label="Cell radius mode">
             <Select
               options={[
@@ -173,11 +327,7 @@ export default function NewJobPage() {
               ]}
             />
           </Form.Item>
-          <Form.Item
-            name="radiusM"
-            label="Initial radius (m)"
-            dependencies={['mode']}
-          >
+          <Form.Item name="radiusM" label="Initial radius (m)" dependencies={['mode']}>
             <InputNumber min={50} max={50000} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item
@@ -195,7 +345,8 @@ export default function NewJobPage() {
                   Base cells: <b>{estimate.baseCells.toLocaleString()}</b>
                 </span>
                 <span>
-                  Effective calls (with quadtree): <b>{estimate.effectiveCalls.toLocaleString()}</b>
+                  Effective calls (with quadtree):{' '}
+                  <b>{estimate.effectiveCalls.toLocaleString()}</b>
                 </span>
                 <span>
                   Cost: <b>${estimate.estimatedCostUsd.toFixed(2)}</b>
