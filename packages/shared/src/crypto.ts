@@ -1,14 +1,14 @@
 import { randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 
-export interface EncryptedKey {
+export interface EncryptedSecret {
   ciphertext: string;
   iv: string;
   authTag: string;
 }
 
-export function encryptApiKey(plaintext: string, masterKeyHex: string): EncryptedKey {
+export function encryptSecret(plaintext: string, masterKeyHex: string): EncryptedSecret {
   const key = Buffer.from(masterKeyHex, 'hex');
-  const iv = randomBytes(12); // 96-bit nonce, standard for GCM
+  const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
   const enc = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
@@ -19,7 +19,7 @@ export function encryptApiKey(plaintext: string, masterKeyHex: string): Encrypte
   };
 }
 
-export function decryptApiKey(enc: EncryptedKey, masterKeyHex: string): string {
+export function decryptSecret(enc: EncryptedSecret, masterKeyHex: string): string {
   const key = Buffer.from(masterKeyHex, 'hex');
   const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(enc.iv, 'base64'));
   decipher.setAuthTag(Buffer.from(enc.authTag, 'base64'));

@@ -3,7 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { schema, type Database } from '@places/db';
 import { DRIZZLE } from '../db/db.tokens.js';
 import { AppConfigService } from '../config/config.service.js';
-import { encryptApiKey, decryptApiKey, maskApiKey } from './crypto.js';
+import { encryptSecret, decryptSecret, maskApiKey } from '@places/shared';
 import type { CreateKeyDto, UpdateKeyDto } from './keys.dto.js';
 
 export interface ApiKeySafe {
@@ -42,7 +42,7 @@ export class KeysService {
   }
 
   async create(dto: CreateKeyDto): Promise<ApiKeySafe> {
-    const enc = encryptApiKey(dto.key, this.config.get('MASTER_ENCRYPTION_KEY'));
+    const enc = encryptSecret(dto.key, this.config.get('MASTER_ENCRYPTION_KEY'));
     const [row] = await this.db
       .insert(schema.apiKeys)
       .values({
@@ -103,7 +103,7 @@ export class KeysService {
     if (!row) return null;
     return {
       id: row.id,
-      key: decryptApiKey(
+      key: decryptSecret(
         { ciphertext: row.key_encrypted, iv: row.iv, authTag: row.auth_tag },
         masterKey,
       ),
