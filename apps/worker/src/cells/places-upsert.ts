@@ -33,6 +33,7 @@ export async function upsertPlaces(
     const lng = p.location.longitude;
     const lat = p.location.latitude;
 
+    const typesJson = JSON.stringify(types);
     await db.execute(sql`
       INSERT INTO places (
         place_id, name, formatted_address, city,
@@ -44,7 +45,7 @@ export async function upsertPlaces(
         ${address},
         ${city},
         ST_SetSRID(ST_Point(${lng}, ${lat}), 4326)::geography,
-        ${types}::text[],
+        (SELECT array_agg(value::text) FROM jsonb_array_elements_text(${typesJson}::jsonb)),
         ${primaryType},
         ${businessStatus},
         ${phone},

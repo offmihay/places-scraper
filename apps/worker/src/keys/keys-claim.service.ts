@@ -21,8 +21,24 @@ export class KeysClaimService {
    * Atomic claim — picks the least-used active key, increments used_today
    * and flips status to quota_exhausted if the bump hits the quota.
    * Uses FOR UPDATE SKIP LOCKED so parallel workers don't fight.
+   *
+   * Retries internally on null: with concurrency=5 and a single key,
+   * four out of five SKIP-LOCKED claims return nothing for a few ms
+   * while the row lock is held. We sleep 30→90→180ms and try again
+   * before reporting "no active keys", which is meant to signal
+   * genuine quota exhaustion / disabled-keys, not lock contention.
    */
   async claim(): Promise<ClaimedKey | null> {
+    const backoffMs = [0, 30, 90, 180];
+    for (const wait of backoffMs) {
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      const row = await this.claimOnce();
+      if (row) return row;
+    }
+    return null;
+  }
+
+  private async claimOnce(): Promise<ClaimedKey | null> {
     const rows = await this.db.execute<{
       id: string;
       key_encrypted: string;
