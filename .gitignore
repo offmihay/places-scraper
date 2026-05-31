@@ -42,7 +42,9 @@ postgres-data/
 redis-data/
 
 # Geo data downloads
+data/
 data/raw/
+*.geojson
 *.geojson.gz
 
 # Test coverage
