@@ -17,14 +17,13 @@ COPY apps/api apps/api
 RUN pnpm --filter @places/api build
 
 # ---------- runtime ----------
+# Copy the whole built workspace so pnpm's per-package node_modules symlinks
+# (which point into /app/node_modules/.pnpm/...) resolve at runtime.
 FROM base AS runtime
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
-COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY apps/api/package.json apps/api/
-# Migrations live in @places/db and are run via the API container at boot.
-COPY packages/db/migrations packages/db/migrations
+COPY --from=build /app/apps/api ./apps/api
 WORKDIR /app/apps/api
 EXPOSE 3001
 CMD ["node", "dist/main.js"]

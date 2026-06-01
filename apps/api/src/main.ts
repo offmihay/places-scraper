@@ -16,7 +16,11 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   app.use(helmet());
   app.use(compression());
-  app.enableCors({ origin: true, credentials: true });
+  const origins = process.env.WEB_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean);
+  app.enableCors({
+    origin: origins && origins.length > 0 ? origins : true,
+    credentials: true,
+  });
   app.setGlobalPrefix('api');
 
   const port = Number(process.env.API_PORT ?? 3001);

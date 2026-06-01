@@ -15,6 +15,10 @@ export class EventsPublisher implements OnModuleDestroy {
     void this.client.publish(jobEventsChannel(event.jobId), JSON.stringify(event));
   }
 
+  async ping(): Promise<void> {
+    await this.client.ping();
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.client.quit().catch(() => {});
   }

@@ -21,6 +21,15 @@ export const configSchema = z.object({
 
   GOOGLE_PLACES_BASE_URL: z.string().url().default('https://places.googleapis.com'),
   GOOGLE_PLACES_COST_PER_CALL_USD: z.coerce.number().positive().default(0.035),
+}).superRefine((cfg, ctx) => {
+  if (cfg.NODE_ENV !== 'production') return;
+  if (/^0+$/.test(cfg.MASTER_ENCRYPTION_KEY)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['MASTER_ENCRYPTION_KEY'],
+      message: 'placeholder value from .env.example is not allowed in production',
+    });
+  }
 });
 
 export type WorkerConfig = z.infer<typeof configSchema>;
