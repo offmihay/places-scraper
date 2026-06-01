@@ -11,10 +11,12 @@ COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile
 
 # ---------- build ----------
+# Turbo handles the workspace dep graph: @places/shared and @places/db are
+# built first (they emit dist/), then @places/api compiles against them.
 FROM deps AS build
 COPY packages packages
 COPY apps/api apps/api
-RUN pnpm --filter @places/api build
+RUN pnpm turbo run build --filter @places/api
 
 # ---------- runtime ----------
 # Copy the whole built workspace so pnpm's per-package node_modules symlinks
