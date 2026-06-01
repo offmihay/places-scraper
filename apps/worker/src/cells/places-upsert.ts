@@ -30,6 +30,7 @@ export async function upsertPlaces(
     const businessStatus = p.businessStatus ?? null;
     const phone = p.internationalPhoneNumber ?? p.nationalPhoneNumber ?? null;
     const uri = p.googleMapsUri ?? null;
+    const website = p.websiteUri ?? null;
     const lng = p.location.longitude;
     const lat = p.location.latitude;
 
@@ -38,7 +39,7 @@ export async function upsertPlaces(
       INSERT INTO places (
         place_id, name, formatted_address, city,
         location, types, primary_type, business_status,
-        phone, google_maps_uri, raw_data, source_job_ids
+        phone, google_maps_uri, website_uri, raw_data, source_job_ids
       ) VALUES (
         ${p.id},
         ${name},
@@ -50,6 +51,7 @@ export async function upsertPlaces(
         ${businessStatus},
         ${phone},
         ${uri},
+        ${website},
         ${JSON.stringify(p)}::jsonb,
         ARRAY[${jobId}::uuid]
       )
@@ -62,6 +64,7 @@ export async function upsertPlaces(
         business_status = EXCLUDED.business_status,
         phone = COALESCE(EXCLUDED.phone, places.phone),
         google_maps_uri = COALESCE(EXCLUDED.google_maps_uri, places.google_maps_uri),
+        website_uri = COALESCE(EXCLUDED.website_uri, places.website_uri),
         raw_data = EXCLUDED.raw_data,
         last_seen_at = now(),
         source_job_ids = (

@@ -20,6 +20,7 @@ export interface PlaceFromApi {
   internationalPhoneNumber?: string;
   nationalPhoneNumber?: string;
   googleMapsUri?: string;
+  websiteUri?: string;
   location?: PlaceLocation;
   addressComponents?: Array<{ longText?: string; shortText?: string; types?: string[] }>;
 }

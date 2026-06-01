@@ -18,6 +18,7 @@ export interface PlaceListRow {
   businessStatus: string | null;
   phone: string | null;
   googleMapsUri: string | null;
+  websiteUri: string | null;
   firstSeenAt: Date;
   lastSeenAt: Date;
 }
@@ -45,7 +46,7 @@ export class PlacesService {
         ST_Y(location::geometry) AS lat,
         ST_X(location::geometry) AS lng,
         types, primary_type AS "primaryType", business_status AS "businessStatus",
-        phone, google_maps_uri AS "googleMapsUri",
+        phone, google_maps_uri AS "googleMapsUri", website_uri AS "websiteUri",
         first_seen_at AS "firstSeenAt", last_seen_at AS "lastSeenAt",
         COUNT(*) OVER ()::text AS _full_count
       FROM places
@@ -74,7 +75,7 @@ export class PlacesService {
         ST_Y(location::geometry) AS lat,
         ST_X(location::geometry) AS lng,
         types, primary_type AS "primaryType", business_status AS "businessStatus",
-        phone, google_maps_uri AS "googleMapsUri",
+        phone, google_maps_uri AS "googleMapsUri", website_uri AS "websiteUri",
         raw_data AS "rawData",
         first_seen_at AS "firstSeenAt", last_seen_at AS "lastSeenAt"
       FROM places WHERE id = ${id} LIMIT 1
@@ -103,6 +104,7 @@ export class PlacesService {
       'lat',
       'lng',
       'google_maps_uri',
+      'website_uri',
       'last_seen_at',
     ].join(',') + '\n';
 
@@ -122,7 +124,7 @@ export class PlacesService {
           ST_Y(location::geometry) AS lat,
           ST_X(location::geometry) AS lng,
           types, primary_type AS "primaryType", business_status AS "businessStatus",
-          phone, google_maps_uri AS "googleMapsUri",
+          phone, google_maps_uri AS "googleMapsUri", website_uri AS "websiteUri",
           last_seen_at AS "lastSeenAt"
         FROM places
         ${where}
@@ -145,6 +147,7 @@ export class PlacesService {
             String(r.lat),
             String(r.lng),
             r.googleMapsUri ?? '',
+            r.websiteUri ?? '',
             r.lastSeenAt instanceof Date ? r.lastSeenAt.toISOString() : String(r.lastSeenAt),
           ].join(',') + '\n'
         );
@@ -216,6 +219,8 @@ export class PlacesService {
     if (q.country) parts.push(sql`country = ${q.country.toUpperCase()}`);
     if (q.city) parts.push(sql`city ILIKE ${'%' + q.city + '%'}`);
     if (q.businessStatus) parts.push(sql`business_status = ${q.businessStatus}`);
+    if (q.hasWebsite === true) parts.push(sql`website_uri IS NOT NULL`);
+    if (q.hasWebsite === false) parts.push(sql`website_uri IS NULL`);
     if (q.types && q.types.length > 0) {
       // postgres-js refuses to encode JS arrays as text[], so we ship them
       // as a JSON array and turn it back into a text[] inside SQL.

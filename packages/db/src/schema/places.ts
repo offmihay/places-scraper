@@ -24,6 +24,7 @@ export const places = pgTable(
     businessStatus: text('business_status'),
     phone: text('phone'),
     googleMapsUri: text('google_maps_uri'),
+    websiteUri: text('website_uri'),
     rawData: jsonb('raw_data').notNull(),
     sourceJobIds: uuid('source_job_ids').array().notNull().default([]),
     firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),

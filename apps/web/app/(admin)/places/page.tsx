@@ -19,6 +19,7 @@ interface Place {
   primaryType: string | null;
   phone: string | null;
   googleMapsUri: string | null;
+  websiteUri: string | null;
   lastSeenAt: string;
 }
 
@@ -36,6 +37,7 @@ export default function PlacesPage() {
   const [country, setCountry] = useState<string | undefined>();
   const [city, setCity] = useState('');
   const [types, setTypes] = useState<string[]>([]);
+  const [hasWebsite, setHasWebsite] = useState<'yes' | 'no' | undefined>();
 
   const query = useMemo(
     () => ({
@@ -43,10 +45,11 @@ export default function PlacesPage() {
       country: country || undefined,
       city: city || undefined,
       types: types.length ? types.join(',') : undefined,
+      hasWebsite: hasWebsite === 'yes' ? 'true' : hasWebsite === 'no' ? 'false' : undefined,
       limit: pageSize,
       offset: (page - 1) * pageSize,
     }),
-    [search, country, city, types, page, pageSize],
+    [search, country, city, types, hasWebsite, page, pageSize],
   );
 
   const placesQ = useQuery({
@@ -136,6 +139,20 @@ export default function PlacesPage() {
               label: `${t.type} (${t.count})`,
             }))}
           />
+          <Select
+            allowClear
+            placeholder="Website"
+            style={{ width: 160 }}
+            value={hasWebsite}
+            onChange={(v) => {
+              setHasWebsite(v);
+              setPage(1);
+            }}
+            options={[
+              { value: 'yes', label: 'Has website' },
+              { value: 'no', label: 'No website' },
+            ]}
+          />
         </Space>
       </Card>
 
@@ -190,6 +207,32 @@ export default function PlacesPage() {
             ),
           },
           { title: 'Phone', dataIndex: 'phone', width: 140 },
+          {
+            title: 'Website',
+            dataIndex: 'websiteUri',
+            width: 220,
+            render: (v: string | null) =>
+              v ? (
+                <a
+                  href={v}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    maxWidth: 200,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    verticalAlign: 'middle',
+                  }}
+                  title={v}
+                >
+                  {v.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                </a>
+              ) : (
+                <span style={{ color: '#bbb' }}>—</span>
+              ),
+          },
           {
             title: '',
             width: 70,

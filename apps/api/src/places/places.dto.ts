@@ -29,6 +29,10 @@ export const listPlacesQuerySchema = z.object({
     .transform((v) => (Array.isArray(v) ? v : v.split(',').filter(Boolean)))
     .optional(),
   businessStatus: z.string().optional(),
+  hasWebsite: z
+    .union([z.boolean(), z.string()])
+    .transform((v) => (typeof v === 'boolean' ? v : v === 'true' ? true : v === 'false' ? false : undefined))
+    .optional(),
   search: z.string().optional(),
   bbox: bboxSchema.optional(),
   near: nearSchema.optional(),

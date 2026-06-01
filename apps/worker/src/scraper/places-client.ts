@@ -17,6 +17,7 @@ const FIELD_MASK = [
   'places.internationalPhoneNumber',
   'places.nationalPhoneNumber',
   'places.googleMapsUri',
+  'places.websiteUri',
   'places.location',
   'places.addressComponents',
 ].join(',');
