@@ -23,7 +23,8 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
 
-  const port = Number(process.env.API_PORT ?? 3001);
+  // Railway/Heroku/Fly inject PORT; API_PORT is the local-dev override.
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
   await app.listen(port, process.env.API_HOST ?? '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`API listening on :${port}`);
